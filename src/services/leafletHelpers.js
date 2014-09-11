@@ -239,6 +239,20 @@ angular.module("leaflet-directive").factory('leafletHelpers', function ($q, $log
                 }
             }
         },
+
+        OverlappingMarkerSpiderfierPlugin: {
+            isLoaded: function () {
+                return OverlappingMarkerSpiderfier !== undefined;
+            },
+            is : function (layer) {
+                if (this.isLoaded()) {
+                    return layer instanceof OverlappingMarkerSpiderfier;
+                } else {
+                    return false;
+                }
+            }
+        },
+
         GoogleLayerPlugin: {
             isLoaded: function() {
                 return angular.isDefined(L.Google);

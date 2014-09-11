@@ -16,11 +16,14 @@ angular.module("leaflet-directive").directive('markers', function ($log, $rootSc
                 listenMarkerEvents = leafletMarkersHelpers.listenMarkerEvents,
                 addMarkerToGroup = leafletMarkersHelpers.addMarkerToGroup,
                 bindMarkerEvents = leafletEvents.bindMarkerEvents,
-                createMarker = leafletMarkersHelpers.createMarker;
+                createMarker = leafletMarkersHelpers.createMarker,
+                createSpiderfier = leafletMarkersHelpers.createSpiderfier,
+                addToOMS = leafletMarkersHelpers.addMarkerToOMS;
 
             mapController.getMap().then(function(map) {
                 var leafletMarkers = {},
-                    getLayers;
+                    getLayers,
+                    omsMap;
 
                 // If the layers attribute is used, we must wait until the layers are created
                 if (isDefined(controller[1])) {
@@ -31,6 +34,10 @@ angular.module("leaflet-directive").directive('markers', function ($log, $rootSc
                         deferred.resolve();
                         return deferred.promise;
                     };
+                }
+
+                if (Helpers.OverlappingMarkerSpiderfierPlugin.isLoaded()) {
+                    omsMap = createSpiderfier(map, leafletScope.spiderfier);
                 }
 
                 getLayers().then(function(layers) {
@@ -116,6 +123,11 @@ angular.module("leaflet-directive").directive('markers', function ($log, $rootSc
                                     if (Helpers.LabelPlugin.isLoaded() && isDefined(markerData.label) && isDefined(markerData.label.options) && markerData.label.options.noHide === true) {
                                         marker.showLabel();
                                     }
+                                }
+
+                                //Spiderfy markers
+                                if (Helpers.OverlappingMarkerSpiderfierPlugin.isLoaded() && isDefined(omsMap)) {
+                                    addToOMS(marker);
                                 }
 
                                 // Should we watch for every specific marker on the map?

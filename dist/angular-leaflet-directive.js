@@ -20,7 +20,8 @@ angular.module("leaflet-directive", []).directive('leaflet', ["$q", "leafletData
             layers         : '=layers',
             controls       : '=controls',
             decorations    : '=decorations',
-            eventBroadcast : '=eventBroadcast'
+            eventBroadcast : '=eventBroadcast',
+            spiderfier     : '=spiderfier'
         },
         transclude: true,
         template: '<div class="angular-leaflet-map"><div ng-transclude></div></div>',
@@ -758,11 +759,14 @@ angular.module("leaflet-directive").directive('markers', ["$log", "$rootScope", 
                 listenMarkerEvents = leafletMarkersHelpers.listenMarkerEvents,
                 addMarkerToGroup = leafletMarkersHelpers.addMarkerToGroup,
                 bindMarkerEvents = leafletEvents.bindMarkerEvents,
-                createMarker = leafletMarkersHelpers.createMarker;
+                createMarker = leafletMarkersHelpers.createMarker,
+                createSpiderfier = leafletMarkersHelpers.createSpiderfier,
+                addToOMS = leafletMarkersHelpers.addMarkerToOMS;
 
             mapController.getMap().then(function(map) {
                 var leafletMarkers = {},
-                    getLayers;
+                    getLayers,
+                    omsMap;
 
                 // If the layers attribute is used, we must wait until the layers are created
                 if (isDefined(controller[1])) {
@@ -773,6 +777,10 @@ angular.module("leaflet-directive").directive('markers', ["$log", "$rootScope", 
                         deferred.resolve();
                         return deferred.promise;
                     };
+                }
+
+                if (Helpers.OverlappingMarkerSpiderfierPlugin.isLoaded()) {
+                    omsMap = createSpiderfier(map, leafletScope.spiderfier);
                 }
 
                 getLayers().then(function(layers) {
@@ -858,6 +866,11 @@ angular.module("leaflet-directive").directive('markers', ["$log", "$rootScope", 
                                     if (Helpers.LabelPlugin.isLoaded() && isDefined(markerData.label) && isDefined(markerData.label.options) && markerData.label.options.noHide === true) {
                                         marker.showLabel();
                                     }
+                                }
+
+                                //Spiderfy markers
+                                if (Helpers.OverlappingMarkerSpiderfierPlugin.isLoaded() && isDefined(omsMap)) {
+                                    addToOMS(marker);
                                 }
 
                                 // Should we watch for every specific marker on the map?
@@ -2957,12 +2970,14 @@ angular.module("leaflet-directive").factory('leafletMarkersHelpers', ["$rootScop
         MarkerClusterPlugin = leafletHelpers.MarkerClusterPlugin,
         AwesomeMarkersPlugin = leafletHelpers.AwesomeMarkersPlugin,
         MakiMarkersPlugin = leafletHelpers.MakiMarkersPlugin,
+        OverlappingMarkerSpiderfierPlugin = leafletHelpers.OverlappingMarkerSpiderfierPlugin,
         safeApply     = leafletHelpers.safeApply,
         Helpers = leafletHelpers,
         isString = leafletHelpers.isString,
         isNumber  = leafletHelpers.isNumber,
         isObject = leafletHelpers.isObject,
-        groups = {};
+        groups = {},
+        omsMap = null;
 
     var createLeafletIcon = function(iconData) {
         if (isDefined(iconData) && isDefined(iconData.type) && iconData.type === 'awesomeMarker') {
@@ -3080,6 +3095,20 @@ angular.module("leaflet-directive").factory('leafletMarkersHelpers', ["$rootScop
             return marker;
         },
 
+        createSpiderfier: function (map, omsData) {
+            if (!OverlappingMarkerSpiderfierPlugin.isLoaded()){
+                $log.error('[AngularJS - Leaflet] The Overlapping Marker Spiderfier plugin is not loaded.');
+                return;
+            }
+            if (!isDefined(omsMap)) {
+                omsMap = new OverlappingMarkerSpiderfier(map, angular.extend({}, omsData));
+                omsMap.addListener('spiderfy', function() {
+                    map.closePopup();
+                });
+            }
+            return omsMap;
+        },
+
         addMarkerToGroup: function(marker, groupName, groupOptions, map) {
             if (!isString(groupName)) {
                 $log.error('[AngularJS - Leaflet] The marker group you have specified is invalid.');
@@ -3095,6 +3124,14 @@ angular.module("leaflet-directive").factory('leafletMarkersHelpers', ["$rootScop
                 map.addLayer(groups[groupName]);
             }
             groups[groupName].addLayer(marker);
+        },
+
+        addMarkerToOMS: function (marker) {
+            if (!OverlappingMarkerSpiderfierPlugin.isLoaded()) {
+                $log.error("[AngularJS - Leaflet] Overlapping Marker Spiderfier plugin is not loaded.");
+                return;
+            }
+            omsMap.addMarker(marker);
         },
 
         listenMarkerEvents: function(marker, markerData, leafletScope) {
@@ -3555,6 +3592,20 @@ angular.module("leaflet-directive").factory('leafletHelpers', ["$q", "$log", fun
                 }
             }
         },
+
+        OverlappingMarkerSpiderfierPlugin: {
+            isLoaded: function () {
+                return OverlappingMarkerSpiderfier !== undefined;
+            },
+            is : function (layer) {
+                if (this.isLoaded()) {
+                    return layer instanceof OverlappingMarkerSpiderfier;
+                } else {
+                    return false;
+                }
+            }
+        },
+
         GoogleLayerPlugin: {
             isLoaded: function() {
                 return angular.isDefined(L.Google);
