@@ -1,5 +1,7 @@
 angular.module("leaflet-directive", []).directive('leaflet', function ($q, leafletData, leafletMapDefaults, leafletHelpers, leafletEvents) {
-    var _leafletMap;
+    var _leafletMap,
+        _spiderfier,
+        spiderfierPluginIsLoaded = leafletHelpers.OverlappingMarkerSpiderfierPlugin.isLoaded();
     return {
         restrict: "EA",
         replace: true,
@@ -23,8 +25,17 @@ angular.module("leaflet-directive", []).directive('leaflet', function ($q, leafl
         template: '<div class="angular-leaflet-map"><div ng-transclude></div></div>',
         controller: function ($scope) {
             _leafletMap = $q.defer();
+
+            if(spiderfierPluginIsLoaded){
+                _spiderfier = $q.defer();
+            }
+
             this.getMap = function () {
                 return _leafletMap.promise;
+            };
+
+            this.getOMSMap = function() {
+                return spiderfierPluginIsLoaded ? _spiderfier.promise : null;
             };
 
             this.getLeafletScope = function() {
@@ -57,6 +68,11 @@ angular.module("leaflet-directive", []).directive('leaflet', function ($q, leafl
             // Create the Leaflet Map Object with the options
             var map = new L.Map(element[0], leafletMapDefaults.getMapCreationDefaults(attrs.id));
             _leafletMap.resolve(map);
+
+            if(spiderfierPluginIsLoaded){
+                var oms = new OverlappingMarkerSpiderfier(map, angular.extend({}, attrs.spiderfier || {}));
+                _spiderfier.resolve(oms);
+            }
 
             if (!isDefined(attrs.center)) {
                 map.setView([defaults.center.lat, defaults.center.lng], defaults.center.zoom);

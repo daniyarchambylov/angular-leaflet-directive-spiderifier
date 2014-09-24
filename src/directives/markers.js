@@ -17,130 +17,129 @@ angular.module("leaflet-directive").directive('markers', function ($log, $rootSc
                 addMarkerToGroup = leafletMarkersHelpers.addMarkerToGroup,
                 bindMarkerEvents = leafletEvents.bindMarkerEvents,
                 createMarker = leafletMarkersHelpers.createMarker,
-                createSpiderfier = leafletMarkersHelpers.createSpiderfier,
                 addToOMS = leafletMarkersHelpers.addMarkerToOMS;
 
             mapController.getMap().then(function(map) {
-                var leafletMarkers = {},
-                    getLayers,
-                    omsMap;
+                mapController.getOMSMap().then(function(omsMap){
+                    var leafletMarkers = {},
+                        getLayers;
 
-                // If the layers attribute is used, we must wait until the layers are created
-                if (isDefined(controller[1])) {
-                    getLayers = controller[1].getLayers;
-                } else {
-                    getLayers = function() {
-                        var deferred = $q.defer();
-                        deferred.resolve();
-                        return deferred.promise;
-                    };
-                }
+                    // If the layers attribute is used, we must wait until the layers are created
+                    if (isDefined(controller[1])) {
+                        getLayers = controller[1].getLayers;
+                    } else {
+                        getLayers = function() {
+                            var deferred = $q.defer();
+                            deferred.resolve();
+                            return deferred.promise;
+                        };
+                    }
 
-                if (Helpers.OverlappingMarkerSpiderfierPlugin.isLoaded()) {
-                    omsMap = createSpiderfier(map, leafletScope.spiderfier);
-                }
-
-                getLayers().then(function(layers) {
-                    leafletData.setMarkers(leafletMarkers, attrs.id);
-                    leafletScope.$watch('markers', function(newMarkers) {
-                        // Delete markers from the array
-                        for (var name in leafletMarkers) {
-                            if (!isDefined(newMarkers) || !isDefined(newMarkers[name])) {
-                                deleteMarker(leafletMarkers[name], map, layers);
-                                delete leafletMarkers[name];
-                            }
-                        }
-
-                        // add new markers
-                        for (var newName in newMarkers) {
-                            if (newName.search("-") !== -1) {
-                                $log.error('The marker can\'t use a "-" on his key name: "' + newName + '".');
-                                continue;
+                    getLayers().then(function(layers) {
+                        leafletData.setMarkers(leafletMarkers, attrs.id);
+                        leafletScope.$watch('markers', function(newMarkers) {
+                            // Delete markers from the array
+                            for (var name in leafletMarkers) {
+                                if (!isDefined(newMarkers) || !isDefined(newMarkers[name])) {
+                                    deleteMarker(leafletMarkers[name], map, layers);
+                                    if (isDefined(omsMap)){
+                                        omsMap.removeMarker(leafletMarkers[name]);
+                                    }
+                                    delete leafletMarkers[name];
+                                }
                             }
 
-                            if (!isDefined(leafletMarkers[newName])) {
-                                var markerData = newMarkers[newName];
-                                var marker = createMarker(markerData);
-                                if (!isDefined(marker)) {
-                                    $log.error('[AngularJS - Leaflet] Received invalid data on the marker ' + newName + '.');
+                            // add new markers
+                            for (var newName in newMarkers) {
+                                if (newName.search("-") !== -1) {
+                                    $log.error('The marker can\'t use a "-" on his key name: "' + newName + '".');
                                     continue;
                                 }
-                                leafletMarkers[newName] = marker;
 
-                                // Bind message
-                                if (isDefined(markerData.message)) {
-                                    marker.bindPopup(markerData.message, markerData.popupOptions);
-                                }
-
-                                // Add the marker to a cluster group if needed
-                                if (isDefined(markerData.group)) {
-                                    var groupOptions = isDefined(markerData.groupOption) ? markerData.groupOption : null;
-                                    addMarkerToGroup(marker, markerData.group, groupOptions, map);
-                                }
-
-                                // Show label if defined
-                                if (Helpers.LabelPlugin.isLoaded() && isDefined(markerData.label) && isDefined(markerData.label.message)) {
-                                    marker.bindLabel(markerData.label.message, markerData.label.options);
-                                }
-
-                                // Check if the marker should be added to a layer
-                                if (isDefined(markerData) && isDefined(markerData.layer)) {
-                                    if (!isString(markerData.layer)) {
-                                        $log.error('[AngularJS - Leaflet] A layername must be a string');
+                                if (!isDefined(leafletMarkers[newName])) {
+                                    var markerData = newMarkers[newName];
+                                    var marker = createMarker(markerData);
+                                    if (!isDefined(marker)) {
+                                        $log.error('[AngularJS - Leaflet] Received invalid data on the marker ' + newName + '.');
                                         continue;
                                     }
-                                    if (!isDefined(layers)) {
-                                        $log.error('[AngularJS - Leaflet] You must add layers to the directive if the markers are going to use this functionality.');
-                                        continue;
+                                    leafletMarkers[newName] = marker;
+
+                                    // Bind message
+                                    if (isDefined(markerData.message)) {
+                                        marker.bindPopup(markerData.message, markerData.popupOptions);
                                     }
 
-                                    if (!isDefined(layers.overlays) || !isDefined(layers.overlays[markerData.layer])) {
-                                        $log.error('[AngularJS - Leaflet] A marker can only be added to a layer of type "group"');
-                                        continue;
-                                    }
-                                    var layerGroup = layers.overlays[markerData.layer];
-                                    if (!(layerGroup instanceof L.LayerGroup || layerGroup instanceof L.FeatureGroup)) {
-                                        $log.error('[AngularJS - Leaflet] Adding a marker to an overlay needs a overlay of the type "group" or "featureGroup"');
-                                        continue;
+                                    // Add the marker to a cluster group if needed
+                                    if (isDefined(markerData.group)) {
+                                        var groupOptions = isDefined(markerData.groupOption) ? markerData.groupOption : null;
+                                        addMarkerToGroup(marker, markerData.group, groupOptions, map);
                                     }
 
-                                    // The marker goes to a correct layer group, so first of all we add it
-                                    layerGroup.addLayer(marker);
-
-                                    // The marker is automatically added to the map depending on the visibility
-                                    // of the layer, so we only have to open the popup if the marker is in the map
-                                    if (map.hasLayer(marker) && markerData.focus === true) {
-                                        marker.openPopup();
+                                    // Show label if defined
+                                    if (Helpers.LabelPlugin.isLoaded() && isDefined(markerData.label) && isDefined(markerData.label.message)) {
+                                        marker.bindLabel(markerData.label.message, markerData.label.options);
                                     }
 
-                                // Add the marker to the map if it hasn't been added to a layer or to a group
-                                } else if (!isDefined(markerData.group)) {
-                                    // We do not have a layer attr, so the marker goes to the map layer
-                                    map.addLayer(marker);
-                                    if (markerData.focus === true) {
-                                        marker.openPopup();
+                                    // Check if the marker should be added to a layer
+                                    if (isDefined(markerData) && isDefined(markerData.layer)) {
+                                        if (!isString(markerData.layer)) {
+                                            $log.error('[AngularJS - Leaflet] A layername must be a string');
+                                            continue;
+                                        }
+                                        if (!isDefined(layers)) {
+                                            $log.error('[AngularJS - Leaflet] You must add layers to the directive if the markers are going to use this functionality.');
+                                            continue;
+                                        }
+
+                                        if (!isDefined(layers.overlays) || !isDefined(layers.overlays[markerData.layer])) {
+                                            $log.error('[AngularJS - Leaflet] A marker can only be added to a layer of type "group"');
+                                            continue;
+                                        }
+                                        var layerGroup = layers.overlays[markerData.layer];
+                                        if (!(layerGroup instanceof L.LayerGroup || layerGroup instanceof L.FeatureGroup)) {
+                                            $log.error('[AngularJS - Leaflet] Adding a marker to an overlay needs a overlay of the type "group" or "featureGroup"');
+                                            continue;
+                                        }
+
+                                        // The marker goes to a correct layer group, so first of all we add it
+                                        layerGroup.addLayer(marker);
+
+                                        // The marker is automatically added to the map depending on the visibility
+                                        // of the layer, so we only have to open the popup if the marker is in the map
+                                        if (map.hasLayer(marker) && markerData.focus === true) {
+                                            marker.openPopup();
+                                        }
+
+                                        // Add the marker to the map if it hasn't been added to a layer or to a group
+                                    } else if (!isDefined(markerData.group)) {
+                                        // We do not have a layer attr, so the marker goes to the map layer
+                                        map.addLayer(marker);
+                                        if (markerData.focus === true) {
+                                            marker.openPopup();
+                                        }
+                                        if (Helpers.LabelPlugin.isLoaded() && isDefined(markerData.label) && isDefined(markerData.label.options) && markerData.label.options.noHide === true) {
+                                            marker.showLabel();
+                                        }
                                     }
-                                    if (Helpers.LabelPlugin.isLoaded() && isDefined(markerData.label) && isDefined(markerData.label.options) && markerData.label.options.noHide === true) {
-                                        marker.showLabel();
+
+                                    //Spiderfy markers
+                                    if (isDefined(omsMap)) {
+                                        addToOMS(omsMap, marker);
                                     }
+
+                                    // Should we watch for every specific marker on the map?
+                                    var shouldWatch = (!isDefined(attrs.watchMarkers) || attrs.watchMarkers === 'true');
+
+                                    if (shouldWatch) {
+                                        addMarkerWatcher(marker, newName, leafletScope, layers, map);
+                                        listenMarkerEvents(marker, markerData, leafletScope);
+                                    }
+                                    bindMarkerEvents(marker, newName, markerData, leafletScope);
                                 }
-
-                                //Spiderfy markers
-                                if (Helpers.OverlappingMarkerSpiderfierPlugin.isLoaded() && isDefined(omsMap)) {
-                                    addToOMS(marker);
-                                }
-
-                                // Should we watch for every specific marker on the map?
-                                var shouldWatch = (!isDefined(attrs.watchMarkers) || attrs.watchMarkers === 'true');
-
-                                if (shouldWatch) {
-                                    addMarkerWatcher(marker, newName, leafletScope, layers, map);
-                                    listenMarkerEvents(marker, markerData, leafletScope);
-                                }
-                                bindMarkerEvents(marker, newName, markerData, leafletScope);
                             }
-                        }
-                    }, true);
+                        }, true);
+                    });
                 });
             });
         }
