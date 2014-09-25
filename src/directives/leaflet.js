@@ -71,6 +71,13 @@ angular.module("leaflet-directive", []).directive('leaflet', function ($q, leafl
 
             if(spiderfierPluginIsLoaded){
                 var oms = new OverlappingMarkerSpiderfier(map, angular.extend({}, attrs.spiderfier || {}));
+                oms.addListener('click', function(marker) {
+                    scope.$emit('marker:clicked', {
+                        icon: marker.options.icon.options.icon,
+                        color: marker.options.icon.options.markerColor,
+                        name: marker.name
+                    });
+                });
                 _spiderfier.resolve(oms);
             }
 

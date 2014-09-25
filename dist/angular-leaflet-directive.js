@@ -75,6 +75,13 @@ angular.module("leaflet-directive", []).directive('leaflet', ["$q", "leafletData
 
             if(spiderfierPluginIsLoaded){
                 var oms = new OverlappingMarkerSpiderfier(map, angular.extend({}, attrs.spiderfier || {}));
+                oms.addListener('click', function(marker) {
+                    scope.$emit('marker:clicked', {
+                        icon: marker.options.icon.options.icon,
+                        color: marker.options.icon.options.markerColor,
+                        name: marker.name
+                    });
+                });
                 _spiderfier.resolve(oms);
             }
 
@@ -822,6 +829,8 @@ angular.module("leaflet-directive").directive('markers', ["$log", "$rootScope", 
                                         $log.error('[AngularJS - Leaflet] Received invalid data on the marker ' + newName + '.');
                                         continue;
                                     }
+
+                                    marker.name = newName;
                                     leafletMarkers[newName] = marker;
 
                                     // Bind message

@@ -63,6 +63,8 @@ angular.module("leaflet-directive").directive('markers', function ($log, $rootSc
                                         $log.error('[AngularJS - Leaflet] Received invalid data on the marker ' + newName + '.');
                                         continue;
                                     }
+
+                                    marker.name = newName;
                                     leafletMarkers[newName] = marker;
 
                                     // Bind message
